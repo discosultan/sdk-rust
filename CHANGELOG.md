@@ -33,6 +33,14 @@ relevant information.
 
 ## Unreleased
 
+### Added
+* Update-with-Start support: `Client::start_update_with_start_workflow` and
+  `Client::execute_update_with_start_workflow` start a workflow and send it an update in one atomic
+  operation. The start request is described by the new `WithStartWorkflowOperation`, whose start
+  options must set `id_conflict_policy` explicitly (use `UseExisting` to attach an update to an
+  already-running workflow). The operation can be intercepted via
+  `ClientInterceptor::update_with_start_workflow`.
+
 ## [0.7.0] - 2026-08-17
 
 ### Added

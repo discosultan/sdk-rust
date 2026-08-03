@@ -670,6 +670,17 @@ pub struct WorkflowStartUpdateOptions {
     pub rpc_options: RpcOptions,
 }
 
+impl From<WorkflowExecuteUpdateOptions> for WorkflowStartUpdateOptions {
+    /// Execute-update is start-update followed by waiting for the update result.
+    fn from(options: WorkflowExecuteUpdateOptions) -> Self {
+        Self::builder()
+            .maybe_update_id(options.update_id)
+            .maybe_header(options.header)
+            .rpc_options(options.rpc_options)
+            .build()
+    }
+}
+
 /// Options for listing workflows.
 #[derive(Debug, Clone, Default, bon::Builder)]
 #[non_exhaustive]
