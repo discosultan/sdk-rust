@@ -51,6 +51,21 @@ relevant information.
 * Workflow task completions larger than the gRPC request size limit are now paginated automatically when the namespace supports it. Paginated workflow task completions require Temporal Server 1.32.0 or later.
 
 ### Breaking Changes :boom:
+* The following types are now non-exhaustive: `Priority`, `WorkerDeploymentVersion`,
+  `WorkerCallbacks`, `WorkflowExecutionInfo`, `ActivityCloseTimeouts`,
+  `ActivityExecutionDecodeHint`, child-workflow and signal decode hints,
+  `SerializationContext`, `SerializationContextData`, `PayloadConverter`, `IncomingError`,
+  `ScheduleSpec`, and `ScheduleOverlapPolicy`. Construct structs using their respective builders
+  or constructors (`WorkerCallbacks::new`, `ActivityExecutionDecodeHint::new`, or
+  `SerializationContext::new`); use `Default` for `PayloadConverter`; and add wildcard branches
+  when matching enums.
+* Renamed `ActivityCloseTimeouts::Both` to `ActivityCloseTimeouts::ScheduleAndStartToClose`.
+* Removed the unused `ActExitValue` type. Use `ActivityError::WillCompleteAsync` to mark an
+  activity for asynchronous completion.
+* Removed the test-only `FailOnNondeterminismInterceptor` from the public Rust SDK API.
+* Environment configuration values (`DataSource`, `ClientConfig`, and related profile, TLS, and
+  codec types) are now non-exhaustive. Use their `bon` builders to construct configuration structs,
+  and add a wildcard branch when matching `DataSource`.
 * Values stored in a `MemoValue` must now be `Send + Sync`. It previously held its value in an
   `Rc` and now uses an `Arc`, so that memos can be built outside a workflow and handed to the
   client. Only affects memo values that are themselves non-`Send`/non-`Sync`, such as those

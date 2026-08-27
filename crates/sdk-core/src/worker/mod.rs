@@ -319,16 +319,16 @@ impl WorkerConfig {
 
     pub(crate) fn computed_deployment_version(&self) -> Option<WorkerDeploymentVersion> {
         let wdv = match self.versioning_strategy {
-            WorkerVersioningStrategy::None { ref build_id } => WorkerDeploymentVersion {
-                deployment_name: "".to_owned(),
-                build_id: build_id.clone(),
-            },
+            WorkerVersioningStrategy::None { ref build_id } => WorkerDeploymentVersion::builder()
+                .deployment_name("")
+                .build_id(build_id.clone())
+                .build(),
             WorkerVersioningStrategy::WorkerDeploymentBased(ref opts) => opts.version.clone(),
             WorkerVersioningStrategy::LegacyBuildIdBased { ref build_id } => {
-                WorkerDeploymentVersion {
-                    deployment_name: "".to_owned(),
-                    build_id: build_id.clone(),
-                }
+                WorkerDeploymentVersion::builder()
+                    .deployment_name("")
+                    .build_id(build_id.clone())
+                    .build()
             }
         };
         if wdv.is_empty() { None } else { Some(wdv) }
@@ -1412,7 +1412,7 @@ impl Worker {
     /// options.
     pub fn record_activity_heartbeat(&self, details: ActivityHeartbeat) {
         if let Some(at_mgr) = self.task_subsystems.at_task_mgr.as_ref() {
-            let tt = TaskToken(details.task_token.clone());
+            let tt: TaskToken = details.task_token.clone().into();
             if let Err(e) = at_mgr.record_heartbeat(details) {
                 warn!(task_token = %tt, details = ?e, "Activity heartbeat failed.");
             }
@@ -1428,7 +1428,7 @@ impl Worker {
         &self,
         completion: ActivityTaskCompletion,
     ) -> Result<(), CompleteActivityError> {
-        let task_token = TaskToken(completion.task_token);
+        let task_token: TaskToken = completion.task_token.into();
         let status = if let Some(s) = completion.result.and_then(|r| r.status) {
             s
         } else {
@@ -1553,7 +1553,7 @@ impl Worker {
                 reason: "Nexus completion had empty status field".to_owned(),
             });
         };
-        let tt = TaskToken(completion.task_token);
+        let tt: TaskToken = completion.task_token.into();
         tracing::Span::current().record("task_token", tt.to_string());
         tracing::Span::current().record("status", status.to_string());
 
@@ -2799,10 +2799,12 @@ mod tests {
             .namespace("default")
             .task_queue("test-queue")
             .versioning_strategy(WorkerVersioningStrategy::WorkerDeploymentBased(
-                WorkerDeploymentOptions::new(WorkerDeploymentVersion {
-                    deployment_name: "deployment".to_string(),
-                    build_id: "1.0".to_string(),
-                })
+                WorkerDeploymentOptions::new(
+                    WorkerDeploymentVersion::builder()
+                        .deployment_name("deployment")
+                        .build_id("1.0")
+                        .build(),
+                )
                 .default_versioning_behavior(VersioningBehavior::AutoUpgrade.into())
                 .build(),
             ))

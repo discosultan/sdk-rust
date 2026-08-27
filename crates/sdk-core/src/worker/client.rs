@@ -752,7 +752,7 @@ impl WorkerClient for WorkerClientBag {
             .respond_activity_task_completed(
                 #[allow(deprecated)] // want to list all fields explicitly
                 RespondActivityTaskCompletedRequest {
-                    task_token: task_token.0,
+                    task_token: task_token.into_inner(),
                     result,
                     identity: self.identity(),
                     namespace: self.namespace.clone(),
@@ -780,7 +780,7 @@ impl WorkerClient for WorkerClientBag {
                 RespondNexusTaskCompletedRequest {
                     namespace: self.namespace.clone(),
                     identity: self.identity(),
-                    task_token: task_token.0,
+                    task_token: task_token.into_inner(),
                     response: Some(response),
                     poller_group_id: Default::default(),
                 }
@@ -800,7 +800,7 @@ impl WorkerClient for WorkerClientBag {
             .clone()
             .record_activity_task_heartbeat(
                 RecordActivityTaskHeartbeatRequest {
-                    task_token: task_token.0,
+                    task_token: task_token.into_inner(),
                     details,
                     identity: self.identity(),
                     namespace: self.namespace.clone(),
@@ -823,7 +823,7 @@ impl WorkerClient for WorkerClientBag {
             .respond_activity_task_canceled(
                 #[allow(deprecated)] // want to list all fields explicitly
                 RespondActivityTaskCanceledRequest {
-                    task_token: task_token.0,
+                    task_token: task_token.into_inner(),
                     details,
                     identity: self.identity(),
                     namespace: self.namespace.clone(),
@@ -855,7 +855,7 @@ impl WorkerClient for WorkerClientBag {
             .respond_activity_task_failed(
                 #[allow(deprecated)] // want to list all fields explicitly
                 RespondActivityTaskFailedRequest {
-                    task_token: task_token.0,
+                    task_token: task_token.into_inner(),
                     failure,
                     identity: self.identity(),
                     namespace: self.namespace.clone(),
@@ -880,7 +880,7 @@ impl WorkerClient for WorkerClientBag {
     ) -> Result<RespondWorkflowTaskFailedResponse> {
         #[allow(deprecated)] // want to list all fields explicitly
         let request = RespondWorkflowTaskFailedRequest {
-            task_token: task_token.0,
+            task_token: task_token.into_inner(),
             cause: cause as i32,
             failure,
             identity: self.identity(),
@@ -919,7 +919,7 @@ impl WorkerClient for WorkerClientBag {
                 RespondNexusTaskFailedRequest {
                     namespace: self.namespace.clone(),
                     identity: self.identity(),
-                    task_token: task_token.0,
+                    task_token: task_token.into_inner(),
                     failure,
                     error,
                     poller_group_id: Default::default(),
@@ -1287,7 +1287,7 @@ mod tests {
 
         client
             .fail_activity_task(
-                TaskToken(vec![1]),
+                vec![1].into(),
                 ActivityTaskFailedCause::ActivityWorkerUnhandledFailure,
                 None,
                 Some(last_heartbeat_details.clone()),
@@ -1308,10 +1308,12 @@ mod tests {
             (
                 "deployment",
                 WorkerVersioningStrategy::WorkerDeploymentBased(
-                    WorkerDeploymentOptions::new(WorkerDeploymentVersion {
-                        deployment_name: "deployment".to_string(),
-                        build_id: "deployment-build".to_string(),
-                    })
+                    WorkerDeploymentOptions::new(
+                        WorkerDeploymentVersion::builder()
+                            .deployment_name("deployment".to_string())
+                            .build_id("deployment-build".to_string())
+                            .build(),
+                    )
                     .use_worker_versioning(true)
                     .build(),
                 ),
@@ -1618,7 +1620,7 @@ mod tests {
             // Roughly 4 MiB of commands forces splitting under the ~3 MiB page target.
             let commands: Vec<_> = (0..8).map(|_| command_with_payload(512 * 1024)).collect();
             let completion = WorkflowTaskCompletion {
-                task_token: TaskToken(b"shared-token".to_vec()),
+                task_token: b"shared-token".to_vec().into(),
                 commands,
                 messages: vec![],
                 sticky_attributes: None,
@@ -1719,7 +1721,7 @@ mod tests {
             // Enough commands to yield at least two intermediate pages (one fails, one hangs).
             let commands: Vec<_> = (0..8).map(|_| command_with_payload(512 * 1024)).collect();
             let completion = WorkflowTaskCompletion {
-                task_token: TaskToken(b"shared-token".to_vec()),
+                task_token: b"shared-token".to_vec().into(),
                 commands,
                 messages: vec![],
                 sticky_attributes: None,
@@ -1795,7 +1797,7 @@ mod tests {
             // at 1 MiB, so the server would reject it, and the worker must fail it without sending.
             let commands: Vec<_> = (0..8).map(|_| command_with_payload(512 * 1024)).collect();
             let completion = WorkflowTaskCompletion {
-                task_token: TaskToken(b"shared-token".to_vec()),
+                task_token: b"shared-token".to_vec().into(),
                 commands,
                 messages: vec![],
                 sticky_attributes: None,
@@ -1881,7 +1883,7 @@ mod tests {
 
             let commands: Vec<_> = (0..8).map(|_| command_with_payload(512 * 1024)).collect();
             let completion = WorkflowTaskCompletion {
-                task_token: TaskToken(b"shared-token".to_vec()),
+                task_token: b"shared-token".to_vec().into(),
                 commands,
                 messages: vec![],
                 sticky_attributes: None,
@@ -1970,7 +1972,7 @@ mod tests {
             shutdown_token.cancel();
             let commands: Vec<_> = (0..8).map(|_| command_with_payload(512 * 1024)).collect();
             let completion = WorkflowTaskCompletion {
-                task_token: TaskToken(b"shared-token".to_vec()),
+                task_token: b"shared-token".to_vec().into(),
                 commands,
                 messages: vec![],
                 sticky_attributes: None,
@@ -2055,7 +2057,7 @@ mod tests {
             shutdown_token.cancel();
             let commands: Vec<_> = (0..8).map(|_| command_with_payload(512 * 1024)).collect();
             let completion = WorkflowTaskCompletion {
-                task_token: TaskToken(b"shared-token".to_vec()),
+                task_token: b"shared-token".to_vec().into(),
                 commands,
                 messages: vec![],
                 sticky_attributes: None,

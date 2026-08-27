@@ -52,6 +52,20 @@ relevant information.
 * Workflow task completions larger than the gRPC request size limit are now paginated automatically when the namespace supports it. Paginated workflow task completions require Temporal Server 1.32.0 or later.
 
 ### Breaking Changes :boom:
+* The following types are now non-exhaustive: `Priority`, `WorkerDeploymentVersion`,
+  `WorkerCallbacks`, `WorkflowExecutionInfo`, `ActivityCloseTimeouts`,
+  `ActivityExecutionDecodeHint`, child-workflow and signal decode hints,
+  `SerializationContext`, `SerializationContextData`, `PayloadConverter`, `IncomingError`,
+  `ScheduleSpec`, and `ScheduleOverlapPolicy`. Construct structs using their respective builders
+  or constructors (`WorkerCallbacks::new`, `ActivityExecutionDecodeHint::new`, or
+  `SerializationContext::new`); use `Default` for `PayloadConverter`; and add wildcard branches
+  when matching enums.
+* Renamed `ActivityCloseTimeouts::Both` to `ActivityCloseTimeouts::ScheduleAndStartToClose`.
+* Removed the unused `ActExitValue` type. Use `ActivityError::WillCompleteAsync` to mark an
+  activity for asynchronous completion.
+* Removed the test-only `FailOnNondeterminismInterceptor` from the public API.
+* `TaskToken` no longer exposes its underlying bytes directly. Use `TaskToken::into_inner()` to
+  consume a token into its bytes.
 * Activity failures now include the latest heartbeat details atomically instead of force-flushing a
   throttled heartbeat first. Temporal Server 1.16.0 or newer is required to guarantee those details
   are preserved on failure; workers warn when the server does not advertise support.

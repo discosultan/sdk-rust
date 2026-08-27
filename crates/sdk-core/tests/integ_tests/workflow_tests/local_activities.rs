@@ -1,7 +1,7 @@
 use crate::common::{
-    ActivationAssertionsInterceptor, CoreWfStarter, WorkflowHandleExt,
-    activity_functions::StdActivities, history_from_proto_binary, init_core_replay_preloaded,
-    workflows::LaProblemWorkflow,
+    ActivationAssertionsInterceptor, CoreWfStarter, FailOnNondeterminismInterceptor,
+    WorkflowHandleExt, activity_functions::StdActivities, history_from_proto_binary,
+    init_core_replay_preloaded, workflows::LaProblemWorkflow,
 };
 use anyhow::anyhow;
 use crossbeam_queue::SegQueue;
@@ -56,7 +56,7 @@ use temporalio_sdk::{
     CancellableFuture, LocalActivityOptions, TimeoutType, Worker, WorkflowContext,
     WorkflowContextView, WorkflowResult,
     activities::{ActivityContext, ActivityError},
-    interceptors::{FailOnNondeterminismInterceptor, WorkerInterceptor},
+    interceptors::WorkerInterceptor,
 };
 use temporalio_sdk_core::{
     PollError, TunerHolder, prost_dur,
@@ -944,13 +944,12 @@ async fn repro_nondeterminism_with_timer_bug() {
         .unwrap();
     worker.run_until_done().await.unwrap();
     let client = starter.get_core_client().await;
-    let handle = WorkflowExecutionInfo {
-        namespace: client.namespace(),
-        workflow_id: wf_name.into(),
-        run_id: Some(handle.run_id().unwrap().to_string()),
-        first_execution_run_id: None,
-    }
-    .bind_untyped(client.clone());
+    let handle = WorkflowExecutionInfo::builder()
+        .namespace(client.namespace())
+        .workflow_id(wf_name)
+        .maybe_run_id(Some(handle.run_id().unwrap().to_string()))
+        .build()
+        .bind_untyped(client.clone());
     handle.fetch_history_and_replay(&mut worker).await.unwrap();
 }
 
@@ -1111,13 +1110,12 @@ async fn la_resolve_same_time_as_other_cancel() {
         .unwrap();
     worker.run_until_done().await.unwrap();
     let client = starter.get_core_client().await;
-    let handle = WorkflowExecutionInfo {
-        namespace: client.namespace(),
-        workflow_id: wf_name.into(),
-        run_id: Some(handle.run_id().unwrap().to_string()),
-        first_execution_run_id: None,
-    }
-    .bind_untyped(client.clone());
+    let handle = WorkflowExecutionInfo::builder()
+        .namespace(client.namespace())
+        .workflow_id(wf_name)
+        .maybe_run_id(Some(handle.run_id().unwrap().to_string()))
+        .build()
+        .bind_untyped(client.clone());
     handle.fetch_history_and_replay(&mut worker).await.unwrap();
 }
 

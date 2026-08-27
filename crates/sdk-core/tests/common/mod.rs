@@ -41,7 +41,7 @@ use temporalio_common::{
     data_converters::{DataConverter, RawValue},
     protos::{
         coresdk::{
-            workflow_activation::WorkflowActivation,
+            workflow_activation::{WorkflowActivation, remove_from_cache::EvictionReason},
             workflow_completion::WorkflowActivationCompletion,
         },
         temporal::api::{
@@ -56,9 +56,7 @@ use temporalio_common::{
 };
 use temporalio_sdk::{
     Worker, WorkerOptions,
-    interceptors::{
-        FailOnNondeterminismInterceptor, ReturnWorkflowExitValueInterceptor, WorkerInterceptor,
-    },
+    interceptors::{ReturnWorkflowExitValueInterceptor, WorkerInterceptor},
 };
 #[cfg(any(feature = "test-utilities", test))]
 pub(crate) use temporalio_sdk_core::test_help::NAMESPACE;
@@ -104,6 +102,25 @@ static ENV_CONFIG_CLIENT_CONFIG: LazyLock<(ConnectionOptions, String)> = LazyLoc
     (connection_options, client_options.namespace)
 });
 
+/// Causes test workers to fail immediately when Core evicts a workflow for nondeterminism.
+pub(crate) struct FailOnNondeterminismInterceptor {}
+
+#[async_trait::async_trait(?Send)]
+impl WorkerInterceptor for FailOnNondeterminismInterceptor {
+    async fn on_workflow_activation(
+        &self,
+        activation: &WorkflowActivation,
+    ) -> Result<(), anyhow::Error> {
+        if matches!(
+            activation.eviction_reason(),
+            Some(EvictionReason::Nondeterminism)
+        ) {
+            bail!("Workflow is being evicted because of nondeterminism! {activation}");
+        }
+        Ok(())
+    }
+}
+
 /// Create a worker instance which will use the provided test name to base the task queue and wf id
 /// upon. Returns the instance.
 pub(crate) async fn init_core_and_create_wf(test_name: &str) -> CoreWfStarter {
@@ -141,10 +158,12 @@ pub(crate) fn integ_worker_config(tq: &str) -> WorkerConfig {
 pub(crate) fn integ_sdk_config(tq: &str) -> WorkerOptions {
     WorkerOptions::new(tq)
         .deployment_options(
-            WorkerDeploymentOptions::new(WorkerDeploymentVersion {
-                deployment_name: "".to_owned(),
-                build_id: "test_build_id".to_owned(),
-            })
+            WorkerDeploymentOptions::new(
+                WorkerDeploymentVersion::builder()
+                    .deployment_name("".to_owned())
+                    .build_id("test_build_id".to_owned())
+                    .build(),
+            )
             .build(),
         )
         .build()
@@ -767,12 +786,13 @@ impl TestWorker {
         }
         let wfid = options.workflow_id.clone();
         let handle = c.start_workflow(workflow, input, options).await?;
-        self.started_workflows.lock().push(WorkflowExecutionInfo {
-            namespace: c.namespace(),
-            workflow_id: wfid,
-            run_id: handle.info().run_id.clone(),
-            first_execution_run_id: None,
-        });
+        self.started_workflows.lock().push(
+            WorkflowExecutionInfo::builder()
+                .namespace(c.namespace())
+                .workflow_id(wfid)
+                .maybe_run_id(handle.info().run_id.clone())
+                .build(),
+        );
         Ok(handle)
     }
 
@@ -781,16 +801,18 @@ impl TestWorker {
         wf_id: impl Into<String>,
         run_id: Option<String>,
     ) {
-        self.started_workflows.lock().push(WorkflowExecutionInfo {
-            namespace: self
-                .client
-                .as_ref()
-                .map(|c| c.namespace())
-                .unwrap_or(NAMESPACE.to_owned()),
-            workflow_id: wf_id.into(),
-            run_id,
-            first_execution_run_id: None,
-        });
+        self.started_workflows.lock().push(
+            WorkflowExecutionInfo::builder()
+                .namespace(
+                    self.client
+                        .as_ref()
+                        .map(|c| c.namespace())
+                        .unwrap_or(NAMESPACE.to_owned()),
+                )
+                .workflow_id(wf_id.into())
+                .maybe_run_id(run_id)
+                .build(),
+        );
     }
 
     /// Runs until all expected workflows have completed and then shuts down the worker
@@ -865,12 +887,13 @@ impl TestWorkerSubmitterHandle {
             )
             .await?;
         let run_id = handle.run_id().unwrap().to_string();
-        self.started_workflows.lock().push(WorkflowExecutionInfo {
-            namespace: self.client.namespace(),
-            workflow_id: wfid,
-            run_id: Some(run_id.clone()),
-            first_execution_run_id: None,
-        });
+        self.started_workflows.lock().push(
+            WorkflowExecutionInfo::builder()
+                .namespace(self.client.namespace())
+                .workflow_id(wfid)
+                .maybe_run_id(Some(run_id.clone()))
+                .build(),
+        );
         Ok(run_id)
     }
 }
